@@ -306,7 +306,7 @@
 
 ---
 
-# 決勝用機能（Scene 0）
+# 決勝用機能
 
 ## Epic 7: 予定自動生成（Scene 0）
 
@@ -324,6 +324,264 @@
 **Priority:** P2 (決勝用)  
 **Note:** 外部連携は「Googleアカウント連携（カレンダー、Gmail、Google Photos）」と「Amazon連携（商品ページ遷移）」に限定  
 **Persona:** ターゲットユーザー（健太）、AD
+
+---
+
+## Epic 9: 非機能要件（NFR）- 決勝用のみ
+
+**重要**: このEpicのすべてのストーリーは決勝用（P2）または将来拡張（P3）であり、**MVPでは実装しない**。MVPは機能検証を優先し、非機能要件は最低限のレベルで十分とする。
+
+---
+
+### Story 9.1: AI応答時間の最適化（Performance - 決勝用）
+
+**As a** ユーザー  
+**I want to** カンペ生成が5秒以内に完了してほしい  
+**So that** 待たされている感なくスムーズに利用できる
+
+**Acceptance Criteria:**
+- **Given** ユーザーがカンペ生成をリクエストした
+- **When** Bedrockがカンペを生成する
+- **Then** P95レスポンスタイムが5秒以内である（MVPは10秒以内で許容）
+
+**最適化手法**:
+- Bedrockプロンプトの最適化（トークン数削減）
+- 頻繁なカンペパターンのキャッシング（DynamoDB TTL）
+- Lambda関数のウォームアップ（Provisioned Concurrency）
+
+**Technical Layer:** AI Integration (Bedrock) + Backend (Lambda)  
+**Priority:** P2 (決勝用)  
+**Note:** MVPでは10秒以内で許容。決勝用で5秒以内に最適化  
+**Persona:** ターゲットユーザー（健太）
+
+---
+
+### Story 9.2: スクショ解析の高速化（Performance - 決勝用）
+
+**As a** ユーザー  
+**I want to** スクショ解析が10秒以内に完了してほしい  
+**So that** 撮れ高報告がスムーズに完了する
+
+**Acceptance Criteria:**
+- **Given** ユーザーがスクショをアップロードした
+- **When** Bedrockマルチモーダル機能で解析する
+- **Then** P95レスポンスタイムが10秒以内である（MVPは15秒以内で許容）
+
+**最適化手法**:
+- 画像圧縮（クライアント側で事前圧縮）
+- 並列処理（複数画像の同時解析）
+- プロンプト最適化
+
+**Technical Layer:** AI Integration (Bedrock) + Frontend (React)  
+**Priority:** P2 (決勝用)  
+**Note:** MVPでは15秒以内で許容。決勝用で10秒以内に最適化  
+**Persona:** ターゲットユーザー（健太）
+
+---
+
+### Story 9.3: データ暗号化の実装（Security - 決勝用）
+
+**As a** システム管理者  
+**I want to** ユーザーの人間関係データを暗号化したい  
+**So that** 個人情報が保護される
+
+**Acceptance Criteria:**
+- **Given** DynamoDBテーブルが作成されている
+- **When** データが保存される
+- **Then** at-rest暗号化が有効化されている
+
+**セキュリティ実装**:
+- DynamoDB at-rest暗号化（AWS KMS）
+- HTTPS通信（in-transit暗号化）
+- 機密データのフィールドレベル暗号化（エピソード内容等）
+
+**Technical Layer:** Backend (DynamoDB)  
+**Priority:** P2 (決勝用)  
+**Note:** MVPではDynamoDB標準暗号化のみ。決勝用でKMS統合  
+**Persona:** システム管理者
+
+---
+
+### Story 9.4: API認可の強化（Security - 決勝用）
+
+**As a** システム管理者  
+**I want to** ユーザーが自分のデータのみアクセスできるようにしたい  
+**So that** 他人のデータが漏洩しない
+
+**Acceptance Criteria:**
+- **Given** ユーザーがAPIをリクエストした
+- **When** API Gateway Lambda Authorizerが認可チェックを実行する
+- **Then** ユーザーは自分のデータのみアクセス可能である
+
+**認可実装**:
+- Lambda Authorizer（JWTトークン検証 + ユーザーID抽出）
+- DynamoDBクエリでユーザーIDフィルタリング
+- IAMロールによる最小権限の原則
+
+**Technical Layer:** Backend (API Gateway + Lambda)  
+**Priority:** P2 (決勝用)  
+**Note:** MVPでは基本的な認証のみ。決勝用で認可強化  
+**Persona:** システム管理者
+
+---
+
+### Story 9.5: Bedrock障害時のフォールバック（Error Handling - 決勝用）
+
+**As a** システム  
+**I want to** Bedrock障害時にデフォルトカンペを表示したい  
+**So that** ユーザー体験が完全に停止しない
+
+**Acceptance Criteria:**
+- **Given** Bedrockがタイムアウトまたはエラーを返す
+- **When** カンペ生成がリクエストされる
+- **Then** デフォルトカンペ（「最近どうっすか？」等）が表示される
+
+**エラーハンドリング実装**:
+```typescript
+try {
+  const kanpe = await bedrockClient.generateKanpe(context);
+} catch (error) {
+  // フォールバック: デフォルトカンペ
+  const kanpe = getDefaultKanpe();
+  logger.warn('Bedrock fallback triggered', { error });
+}
+```
+
+**デフォルトカンペ例**:
+- 「最近どうっすか？って聞いとけばOKっす」
+- 「お元気っすか？って軽く聞いときましょ」
+
+**Technical Layer:** Backend (Lambda) + Frontend (React)  
+**Priority:** P2 (決勝用)  
+**Note:** MVPではエラー時にエラーメッセージ表示のみ。決勝用でフォールバック実装  
+**Persona:** システム
+
+---
+
+### Story 9.6: DynamoDB障害時のリトライ（Error Handling - 決勝用）
+
+**As a** システム  
+**I want to** DynamoDB障害時に自動リトライしたい  
+**So that** 一時的な障害でデータ保存が失敗しない
+
+**Acceptance Criteria:**
+- **Given** DynamoDBが一時的なエラーを返す
+- **When** データ保存がリクエストされる
+- **Then** 最大3回まで自動リトライされる
+
+**リトライロジック実装**:
+```typescript
+const dynamoClient = new DynamoDBClient({
+  maxAttempts: 3,
+  retryMode: 'adaptive',
+  retryStrategy: exponentialBackoff
+});
+```
+
+**Technical Layer:** Backend (Lambda + DynamoDB)  
+**Priority:** P2 (決勝用)  
+**Note:** MVPではリトライなし。決勝用でリトライロジック実装  
+**Persona:** システム
+
+---
+
+### Story 9.7: 通知送信失敗時のリトライ（Error Handling - 決勝用）
+
+**As a** システム  
+**I want to** FCM通知送信失敗時に自動リトライしたい  
+**So that** 重要な通知が確実に届く
+
+**Acceptance Criteria:**
+- **Given** FCM通知送信が失敗した
+- **When** 通知送信がリクエストされる
+- **Then** 最大3回まで自動リトライされ、失敗時はDLQ（Dead Letter Queue）に送信される
+
+**リトライロジック実装**:
+- EventBridge + Lambda + SQS DLQ
+- 指数バックオフ（1秒、2秒、4秒）
+- DLQからの手動再送機能
+
+**Technical Layer:** Backend (EventBridge + Lambda + FCM + SQS)  
+**Priority:** P2 (決勝用)  
+**Note:** MVPではリトライなし。決勝用でリトライ + DLQ実装  
+**Persona:** システム
+
+---
+
+### Story 9.8: CloudWatch監視ダッシュボード（Observability - 決勝用）
+
+**As a** システム管理者  
+**I want to** システムのパフォーマンスとエラー率をリアルタイムで監視したい  
+**So that** 問題を早期に検出できる
+
+**Acceptance Criteria:**
+- **Given** CloudWatch Dashboardが作成されている
+- **When** システムが稼働している
+- **Then** レスポンスタイム、エラー率、スロットリング率がリアルタイムで表示される
+
+**監視項目**:
+- Lambda実行時間（P50/P95/P99）
+- Bedrock応答時間（カスタムメトリクス）
+- DynamoDB応答時間
+- API Gatewayエラー率
+- FCM通知送信成功率
+
+**Technical Layer:** Backend (CloudWatch)  
+**Priority:** P2 (決勝用)  
+**Note:** MVPでは基本的なCloudWatch Logsのみ。決勝用でダッシュボード実装  
+**Persona:** システム管理者
+
+---
+
+### Story 9.9: X-Ray分散トレーシング（Observability - 将来拡張）
+
+**As a** システム管理者  
+**I want to** エンドツーエンドのレイテンシを分析したい  
+**So that** ボトルネックを特定できる
+
+**Acceptance Criteria:**
+- **Given** X-Rayが有効化されている
+- **When** ユーザーがカンペ生成をリクエストする
+- **Then** Frontend → API Gateway → Lambda → Bedrock → DynamoDBの全経路がトレースされる
+
+**トレーシング実装**:
+- Lambda関数でX-Ray SDK有効化
+- カスタムセグメント（Bedrock呼び出し、DynamoDBクエリ）
+- サービスマップ可視化
+
+**Technical Layer:** Backend (X-Ray)  
+**Priority:** P3 (将来拡張)  
+**Note:** 決勝用でも実装しない。将来の最適化時に検討  
+**Persona:** システム管理者
+
+---
+
+### Story 9.10: 人格一貫性スコアの監視（Quality - 決勝用）
+
+**As a** システム管理者  
+**I want to** AI人格の一貫性スコアを監視したい  
+**So that** 人格崩壊を早期に検出できる
+
+**Acceptance Criteria:**
+- **Given** Bedrock応答がCloudWatch Logsに記録されている
+- **When** CloudWatch Logs Insightsでクエリを実行する
+- **Then** 人格一貫性スコア（語尾一致率、禁止ワード検出率）が表示される
+
+**監視クエリ例**:
+```
+fields @timestamp, response
+| filter response like /頑張りましょう|ちゃんと|しっかり/
+| stats count() as violation_count by bin(5m)
+```
+
+**アラート設定**:
+- 禁止ワード検出率が5%を超えた場合にSNS通知
+- 語尾不一致率が10%を超えた場合にSNS通知
+
+**Technical Layer:** Backend (CloudWatch Logs Insights + SNS)  
+**Priority:** P2 (決勝用)  
+**Note:** MVPでは手動確認のみ。決勝用で自動監視実装  
+**Persona:** システム管理者
 
 ---
 
@@ -353,9 +611,9 @@
 ## 優先度別ストーリー数
 - **P0 (MVP必須)**: 14ストーリー
 - **P1 (MVP拡張)**: 3ストーリー
-- **P2 (決勝用)**: 1ストーリー
-- **P3 (拡張スコープ)**: 1ストーリー
-- **合計**: 19ストーリー
+- **P2 (決勝用)**: 11ストーリー（1機能 + 10非機能要件）
+- **P3 (拡張スコープ)**: 2ストーリー（1機能 + 1非機能要件）
+- **合計**: 30ストーリー
 
 ## Epic別ストーリー数
 - Epic 1: 撮れ高報告（3ストーリー: 1.1, 1.2, 1.4）
@@ -366,17 +624,241 @@
 - Epic 6: 認証・ユーザー管理（2ストーリー: 6.1, 6.2）
 - Epic 7: 予定自動生成（1ストーリー: 7.1）
 - Epic 8: サボりの免罪符（1ストーリー: 8.1）
+- **Epic 9: 非機能要件（10ストーリー: 9.1〜9.10）** ※決勝用のみ
 
 ## 技術レイヤー別ストーリー数
 - Frontend (React): 7ストーリー
-- Backend (API Gateway + Lambda + DynamoDB): 7ストーリー
-- AI Integration (Bedrock): 5ストーリー
+- Backend (API Gateway + Lambda + DynamoDB): 13ストーリー（+6非機能要件）
+- AI Integration (Bedrock): 7ストーリー（+2非機能要件）
+- Observability (CloudWatch + X-Ray): 2ストーリー（非機能要件）
 
-## INVEST基準チェック
+## 非機能要件ストーリーの分類
+
+| カテゴリ | ストーリー数 | 優先度 |
+|---|---|---|
+| Performance（パフォーマンス） | 2 | P2（決勝用） |
+| Security（セキュリティ） | 2 | P2（決勝用） |
+| Error Handling（エラーハンドリング） | 3 | P2（決勝用） |
+| Observability（可観測性） | 2 | P2（決勝用）+ P3（将来） |
+| Quality（品質） | 1 | P2（決勝用） |
+
+**重要**: すべての非機能要件ストーリーは**MVPでは実装しない**。MVPは機能検証を優先し、非機能要件は最低限のレベルで十分とする。
+
+## ストーリー依存関係図
+
+### 依存関係の可視化
+
+```mermaid
+graph TD
+    %% 基盤機能
+    S6.1[Story 6.1: ソーシャルログイン] --> S1.1[Story 1.1: ワンタップ感情タグ]
+    S6.1 --> S1.2[Story 1.2: 音声メモ入力]
+    S6.2[Story 6.2: 通知機能] --> S4.1[Story 4.1: 即効性お礼カンペ]
+    S6.2 --> S4.3[Story 4.3: 遅効性ギフト提案通知]
+    S6.2 --> S5.1[Story 5.1: PTA予定検出]
+    
+    %% Epic 1: 撮れ高報告
+    S1.1 --> S1.4[Story 1.4: 撮れ高データ保存]
+    S1.2 --> S1.4
+    
+    %% Epic 2: カンペ提示
+    S1.4 --> S2.1[Story 2.1: アイスブレイクカンペ]
+    S1.4 --> S2.2[Story 2.2: NG話題アラート]
+    S2.1 --> S2.3[Story 2.3: ついでギフト提案]
+    S2.1 --> S2.4[Story 2.4: スワイプフィードバック]
+    S2.2 --> S2.4
+    
+    %% Epic 3: パフォーマンス
+    S2.1 --> S3.1[Story 3.1: カンペ表示画面]
+    S2.3 --> S3.2[Story 3.2: よきに決済]
+    S2.1 --> S3.3[Story 3.3: アドバイス実行確認]
+    
+    %% Epic 4: 返報性ハック
+    S1.4 --> S4.1
+    S4.1 --> S4.2[Story 4.2: 遅効性タイミング計算]
+    S4.2 --> S4.3
+    
+    %% Epic 5: PTA集会カンペ
+    S1.4 --> S5.1
+    S5.1 --> S5.2[Story 5.2: PTA集会カンペ生成]
+    
+    %% Epic 7: 予定自動生成（決勝用）
+    S6.1 --> S7.1[Story 7.1: 予定自動生成]
+    S1.4 --> S7.1
+    
+    %% Epic 8: サボりの免罪符（拡張）
+    S6.1 --> S8.1[Story 8.1: サボり言い訳生成]
+    
+    %% スタイル定義
+    classDef p0 fill:#4CAF50,stroke:#2E7D32,color:#fff
+    classDef p1 fill:#FFC107,stroke:#F57C00,color:#000
+    classDef p2 fill:#2196F3,stroke:#1565C0,color:#fff
+    classDef p3 fill:#9E9E9E,stroke:#616161,color:#fff
+    
+    class S1.1,S1.4,S2.1,S2.2,S2.4,S3.1,S3.2,S4.1,S4.2,S4.3,S5.1,S5.2,S6.1,S6.2 p0
+    class S1.2,S2.3,S3.3 p1
+    class S7.1 p2
+    class S8.1 p3
+```
+
+**凡例**:
+- 🟢 緑: P0（MVP必須）
+- 🟡 黄: P1（MVP拡張）
+- 🔵 青: P2（決勝用）
+- ⚫ 灰: P3（拡張スコープ）
+
+### 推奨実装順序
+
+#### フェーズ1: 基盤機能（1-2日）
+1. **Story 6.1**: ソーシャルログイン（認証基盤）
+2. **Story 6.2**: 通知機能（EventBridge + FCM）
+
+**並行実装可能**: Story 6.1とStory 6.2は独立しているため並行実装可能
+
+---
+
+#### フェーズ2: 撮れ高報告（2-3日）
+3. **Story 1.4**: 撮れ高データ保存（Backend - DynamoDB）
+4. **Story 1.1**: ワンタップ感情タグ入力（Frontend）
+5. **Story 1.2**: 音声メモ入力（Frontend + AI Integration）※P1
+
+**並行実装可能**: Story 1.1とStory 1.2は並行実装可能（どちらもStory 1.4に依存）
+
+**依存関係**:
+- Story 1.1, 1.2 → Story 1.4（データ保存APIが必要）
+- Story 1.1, 1.2 → Story 6.1（認証が必要）
+
+---
+
+#### フェーズ3: カンペ生成（3-4日）
+6. **Story 2.1**: アイスブレイクカンペ（AI Integration）
+7. **Story 2.2**: NG話題アラート（AI Integration）
+8. **Story 2.4**: スワイプフィードバック（Frontend + Backend）
+9. **Story 2.3**: ついでギフト提案（AI Integration）※P1
+
+**並行実装可能**: Story 2.1とStory 2.2は並行実装可能（どちらもStory 1.4に依存）
+
+**依存関係**:
+- Story 2.1, 2.2 → Story 1.4（エピソードデータが必要）
+- Story 2.4 → Story 2.1, 2.2（カンペが必要）
+- Story 2.3 → Story 2.1（カンペ生成ロジックが必要）
+
+---
+
+#### フェーズ4: UI実装（2-3日）
+10. **Story 3.1**: カンペ表示画面（Frontend - 手書き風UI）
+11. **Story 3.2**: よきに決済（Frontend）
+12. **Story 3.3**: アドバイス実行確認（Frontend）※P1
+
+**並行実装可能**: Story 3.1, 3.2, 3.3は並行実装可能（UIコンポーネント）
+
+**依存関係**:
+- Story 3.1 → Story 2.1（カンペデータが必要）
+- Story 3.2 → Story 2.3（ギフト提案が必要）
+- Story 3.3 → Story 2.1（アドバイスデータが必要）
+
+---
+
+#### フェーズ5: 返報性ハック（3-4日）
+13. **Story 4.1**: 即効性お礼カンペ通知（AI Integration + Backend）
+14. **Story 4.2**: 遅効性タイミング計算（Backend）
+15. **Story 4.3**: 遅効性ギフト提案通知（Backend + Frontend）
+
+**並行実装不可**: Story 4.1 → 4.2 → 4.3の順序で実装（依存関係が強い）
+
+**依存関係**:
+- Story 4.1 → Story 1.4（エピソードデータが必要）
+- Story 4.1 → Story 6.2（通知機能が必要）
+- Story 4.2 → Story 4.1（即効性ロジックが必要）
+- Story 4.3 → Story 4.2（タイミング計算が必要）
+
+---
+
+#### フェーズ6: PTA集会カンペ（2-3日）
+16. **Story 5.1**: PTA予定検出（Backend + Google Calendar API）
+17. **Story 5.2**: PTA集会カンペ生成（AI Integration + Frontend）
+
+**並行実装不可**: Story 5.1 → 5.2の順序で実装
+
+**依存関係**:
+- Story 5.1 → Story 6.1（Google認証が必要）
+- Story 5.1 → Story 6.2（通知機能が必要）
+- Story 5.2 → Story 5.1（予定データが必要）
+- Story 5.2 → Story 1.4（エピソードデータが必要）
+
+---
+
+#### フェーズ7: 決勝用機能（3-4日）
+18. **Story 7.1**: 予定自動生成（Backend + AI Integration）
+
+**依存関係**:
+- Story 7.1 → Story 6.1（Google認証が必要）
+- Story 7.1 → Story 1.4（エピソードデータ保存が必要）
+
+---
+
+#### フェーズ8: 拡張スコープ（将来）
+19. **Story 8.1**: サボり言い訳生成（Backend + AI Integration）
+
+**依存関係**:
+- Story 8.1 → Story 6.1（認証が必要）
+
+---
+
+### 並行実装戦略
+
+#### 並行実装可能なストーリーグループ
+
+**グループ1（基盤）**:
+- Story 6.1（認証）
+- Story 6.2（通知）
+
+**グループ2（撮れ高報告）**:
+- Story 1.1（感情タグ）
+- Story 1.2（音声メモ）※P1
+
+**グループ3（カンペ生成）**:
+- Story 2.1（アイスブレイクカンペ）
+- Story 2.2（NG話題アラート）
+
+**グループ4（UI実装）**:
+- Story 3.1（カンペ表示画面）
+- Story 3.2（よきに決済）
+- Story 3.3（アドバイス実行確認）※P1
+
+### クリティカルパス
+
+**MVP完成までのクリティカルパス（最短経路）**:
+```
+Story 6.1（認証）
+  ↓
+Story 1.4（データ保存）
+  ↓
+Story 2.1（カンペ生成）
+  ↓
+Story 3.1（カンペ表示）
+  ↓
+Story 4.1（即効性お礼）
+  ↓
+Story 4.2（タイミング計算）
+  ↓
+Story 4.3（遅効性ギフト提案）
+```
+
+**推定日数**: 15-18日（クリティカルパスのみ）
+
+**並行実装を活用した推定日数**: 12-15日（並行実装グループを活用）
+
+---
+
+## INVEST基準チェック（修正版）
+
 すべてのストーリーは以下のINVEST基準を満たしています：
-- ✅ **Independent（独立している）**: 各ストーリーは他のストーリーに依存せず実装可能
+- ⚠️ **Independent（独立している）**: 一部のストーリーには依存関係が存在するが、依存関係図で明確化されている
 - ✅ **Negotiable（交渉可能）**: 受容基準は簡易版で、実装詳細は柔軟に調整可能
 - ✅ **Valuable（価値がある）**: すべてのストーリーがユーザー体験またはシステム機能に価値を提供
 - ✅ **Estimable（見積もり可能）**: 技術レイヤー別に分割され、見積もりが容易
 - ✅ **Small（小さい）**: 中粒度で、1〜3日で実装可能なサイズ
 - ✅ **Testable（テスト可能）**: Given-When-Then形式の受容基準でテスト可能
+
+**注**: 「Independent（独立している）」については、完全な独立性ではなく、依存関係を明確化することでINVEST基準を満たしている。

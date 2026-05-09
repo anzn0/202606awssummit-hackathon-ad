@@ -209,32 +209,99 @@ Larry Wallの「怠慢 (Laziness)」の社会実装。人間関係のメンテ�
 
 **実装**: EventBridge + Lambda + FCMでプッシュ通知
 
-##### 4.2 第二段階：遅効性ギフト提案タイミング計算（2〜3週間後、または次回予定直前）（P0）
+##### 4.2 第二段階：遅効性ギフト提案タイミング計算（P0 - MVP簡略版 / P2 - 決勝用高度化版）
 
 **目的**: 「早すぎて事務的」にならず、「遅すぎて失礼」にもならない完璧なタイミングを自動計算
 
-**タイミング計算ロジック**:
-1. 事象発生から2〜3週間後
-2. または次にその人と会う予定の直前
+#### MVPスコープ（P0）: 固定スケジュール方式
 
-**システム判断**: 「今ならマナー的に完璧なタイミング」と判断し、通知を準備
+**タイミング計算ロジック（簡略版）**:
+- 事象発生から**21日後（固定）**に通知
+- カレンダー連携なし
+- シンプルな実装で機能検証を優先
 
-**実装**: Lambda + DynamoDB + EventBridgeでタイミング計算
+**実装方式**:
+```
+1. エピソード記録時: 「もらった」フラグをDynamoDBに保存
+2. EventBridge Scheduler: 21日後の通知をスケジュール登録
+3. 21日後: Lambda関数が通知を送信
+```
 
-##### 4.3 第二段階：遅効性ギフト提案通知（2〜3週間後、または次回予定直前）（P0）
+**メリット**:
+- 実装が単純（EventBridge Schedulerのみ）
+- テストが容易（固定日数）
+- MVP開発スピード重視
+
+**制約**:
+- 次回予定との連動なし
+- タイミングの動的調整なし
+- 「完璧なタイミング」ではなく「妥当なタイミング」
+
+#### 決勝用フルスコープ（P2）: 動的再計算方式
+
+**タイミング計算ロジック（高度化版）**:
+1. **デフォルト**: 事象発生から21日後
+2. **次回予定優先**: 21日以内に次回予定がある場合は、予定の**3日前**に変更
+3. **複数予定**: 最も近い予定を優先
+
+**実装方式**:
+```
+1. エピソード記録時: デフォルトスケジュール（21日後）を登録
+2. カレンダーWebhook: 新規予定追加時にタイミング再計算
+3. タイミング再計算: 次回予定が21日以内なら予定の3日前に変更
+4. EventBridge Scheduler更新: スケジュールを動的に更新
+```
+
+**エッジケース処理**:
+
+| ケース | 処理方法 |
+|---|---|
+| 次回予定が3日以内 | デフォルト（21日後）を維持 |
+| 複数予定が21日以内 | 最も近い予定の3日前 |
+| 予定がキャンセル | デフォルト（21日後）に戻す |
+| 21日後に予定が追加 | スケジュール変更なし（既に通知済み） |
+
+**配送リードタイム逆算（将来拡張）**:
+- 商品の「配送リードタイム（到着日数）」を逆算した先行通知
+- 例: 次回予定が7日後、配送3日 → 4日後に通知
+- 決勝用フルスコープ後の将来拡張として位置づける
+
+**実装**:
+- Google Calendar API連携（Webhook）
+- Lambda + DynamoDB + EventBridge Schedulerでタイミング動的再計算
+- 冪等性設計（同じエピソードに対する重複通知を防ぐ）
+
+##### 4.3 第二段階：遅効性ギフト提案通知（P0 - MVP / P2 - 決勝用）
 
 **目的**: 社会的マナーとして最適なタイミングで自動的にお返し提案通知を受け取る
 
+#### MVPスコープ（P0）: 固定タイミング通知
+
 **ADのセリフ例**:
 ```
-あ、そういえば前にお酒もらった件、そろそろお返ししとく（または次に会う時に渡す）時期っすね。
+あ、そういえば前にお酒もらった件、そろそろお返ししとく時期っすね。
 今ならマナー的に完璧なタイミングなんで、これポチっときましょ。
 叔父さん好きそうな『塩辛』の限定品（Amazonリンク）見つけといたっす
 ```
 
-**実装**: EventBridge + Lambda + FCMでプッシュ通知
+**実装**: EventBridge Scheduler + Lambda + FCMでプッシュ通知
 
-**配送リードタイム逆算（将来拡張）**: 商品の「配送リードタイム（到着日数）」を逆算した先行通知（決勝用で検討）
+#### 決勝用フルスコープ（P2）: 動的タイミング通知
+
+**ADのセリフ例（次回予定連動）**:
+```
+あ、そういえば前にお酒もらった件、3日後に叔父さんと会うんすよね。
+その時に渡せるように、今のうちにポチっときましょ。
+叔父さん好きそうな『塩辛』の限定品（Amazonリンク）見つけといたっす
+配送は2日で届くんで、余裕っす👍
+```
+
+**実装**: EventBridge Scheduler（動的更新） + Lambda + FCMでプッシュ通知
+
+**タイミング通知の種類**:
+- デフォルト通知: 「そろそろお返ししとく時期っすね」
+- 次回予定連動通知: 「3日後に会うんすよね。その時に渡せるように」
+- 配送リードタイム考慮通知（将来拡張）: 「配送は2日で届くんで、余裕っす」
 
 ---
 
@@ -349,13 +416,332 @@ Googleカレンダーから「PTA集会」等の予定を検出し、開始時�
 - **拡張性**: 語尾を変えられるように変更の容易性、拡張性を持たせる
 - **検証**: Inceptionフェーズでの要検証項目（人格崩壊リスクの対策）
 
+#### AI人格一貫性維持メカニズム（改善提案追加）
+
+本システムの核心である「ゆるふわカンペAD」の人格を一貫して維持するため、以下のメカニズムを実装する。
+
+##### 1. プロンプトバージョン管理
+
+**目的**: プロンプトテンプレートの変更履歴を追跡し、問題発生時に迅速にロールバック可能にする
+
+**実装方式**:
+```
+prompts/
+├── v1.0/
+│   ├── system-instruction.yaml
+│   ├── kanpe-generation.yaml
+│   ├── ng-topic-alert.yaml
+│   ├── gift-suggestion.yaml
+│   ├── immediate-thanks.yaml
+│   └── delayed-gift-return.yaml
+├── v1.1/
+│   └── ...
+└── CHANGELOG.md
+```
+
+**バージョニング規則**:
+- セマンティックバージョニング（v1.0, v1.1, v2.0）
+- MAJOR: 人格の根本的変更（語尾変更等）
+- MINOR: 新シーン追加、表現の微調整
+- PATCH: バグ修正、誤字修正
+
+**Git管理**:
+- プロンプトファイルはGitで管理
+- コミットメッセージに変更理由を明記
+- タグでバージョンを管理（例: `git tag v1.0`）
+
+##### 2. 人格崩壊検出（自動検証）
+
+**目的**: AI応答が人格要件を満たしているかを自動的に検証し、人格崩壊を早期検出する
+
+**検証項目**:
+
+| 検証項目 | 検証方法 | 合格基準 |
+|---|---|---|
+| 語尾統一 | 正規表現マッチング | `/っす(ね)?$/` にマッチ |
+| 禁止ワード | 文字列検索 | 「頑張りましょう」「ちゃんと」「しっかり」が含まれない |
+| 絵文字使用 | 正規表現マッチング | `[😊👍🤒😰💪]` のいずれかが含まれる |
+| 説教トーン | キーワード検出 | 「べき」「すべき」「ねばならない」が含まれない |
+| ゆるふわ表現 | キーワード検出 | 「ヤバい」「爆上がり」「秒で」のいずれかが含まれる（推奨） |
+
+**実装例（Python）**:
+```python
+# persona_validator.py
+import re
+from typing import Dict, List
+
+def validate_persona(response: str) -> Dict[str, any]:
+    """AI人格の一貫性を検証"""
+    issues: List[str] = []
+    warnings: List[str] = []
+    
+    # 必須: 語尾チェック
+    if not re.search(r'っす(ね)?$', response.strip()):
+        issues.append('語尾が「っす」で終わっていない')
+    
+    # 必須: 禁止ワードチェック
+    forbidden_words = ['頑張りましょう', 'ちゃんと', 'しっかり', 'べき', 'すべき']
+    for word in forbidden_words:
+        if word in response:
+            issues.append(f'禁止ワード「{word}」が含まれている')
+    
+    # 推奨: 絵文字チェック
+    if not re.search(r'[😊👍🤒😰💪]', response):
+        warnings.append('絵文字が含まれていない（推奨）')
+    
+    # 推奨: ゆるふわ表現チェック
+    casual_words = ['ヤバい', '爆上がり', '秒で', 'ポチ']
+    if not any(word in response for word in casual_words):
+        warnings.append('ゆるふわ表現が含まれていない（推奨）')
+    
+    return {
+        'valid': len(issues) == 0,
+        'issues': issues,
+        'warnings': warnings,
+        'response': response
+    }
+```
+
+**自動テストスイート（TypeScript/Jest）**:
+```typescript
+// persona-validation.test.ts
+describe('AI人格一貫性テスト', () => {
+  it('カンペ生成で語尾が「っす」で終わる', async () => {
+    const kanpe = await generateKanpe(mockContext);
+    expect(kanpe).toMatch(/っす(ね)?$/);
+  });
+  
+  it('禁止ワードが含まれていない', async () => {
+    const kanpe = await generateKanpe(mockContext);
+    const forbiddenWords = ['頑張りましょう', 'ちゃんと', 'しっかり'];
+    forbiddenWords.forEach(word => {
+      expect(kanpe).not.toContain(word);
+    });
+  });
+  
+  it('絵文字が含まれている', async () => {
+    const kanpe = await generateKanpe(mockContext);
+    expect(kanpe).toMatch(/[😊👍🤒😰💪]/);
+  });
+});
+```
+
+##### 3. 継続的検証（CI/CD統合）
+
+**目的**: プロンプト変更時に自動的に人格検証を実行し、人格崩壊を未然に防ぐ
+
+**CI/CDパイプライン統合**:
+```yaml
+# .github/workflows/persona-validation.yml
+name: AI Persona Validation
+
+on:
+  push:
+    paths:
+      - 'prompts/**'
+  pull_request:
+    paths:
+      - 'prompts/**'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      
+      - name: Run persona validation tests
+        run: python -m pytest tests/persona_validator_test.py
+      
+      - name: Generate test responses
+        run: python scripts/generate_test_responses.py
+      
+      - name: Validate test responses
+        run: python scripts/validate_responses.py
+```
+
+**本番環境での継続的監視**:
+- **CloudWatch Logs Insights**: Bedrock応答ログを定期的に分析
+- **人格崩壊アラート**: 禁止ワード検出時にSNS通知
+- **ダッシュボード**: 人格一貫性スコアを可視化
+
+**CloudWatch Logs Insightsクエリ例**:
+```
+fields @timestamp, response
+| filter response like /頑張りましょう|ちゃんと|しっかり/
+| stats count() as violation_count by bin(5m)
+```
+
+**SNSアラート設定**:
+- 禁止ワード検出率が5%を超えた場合にアラート
+- 語尾不一致率が10%を超えた場合にアラート
+
+##### 4. プロンプトテスト駆動開発（Prompt TDD）
+
+**目的**: プロンプト変更前にテストケースを作成し、期待する応答を明確にする
+
+**テストケース例**:
+```yaml
+# tests/persona_test_cases.yaml
+test_cases:
+  - name: "腰痛エピソードからのカンペ生成"
+    input:
+      target_name: "叔父さん"
+      episodes:
+        - "腰が痛いと言っていた"
+    expected_output:
+      contains:
+        - "っす"
+        - "腰"
+      not_contains:
+        - "頑張りましょう"
+        - "ちゃんと"
+      regex_match: "っす(ね)?$"
+  
+  - name: "NG話題アラート生成"
+    input:
+      target_name: "田中さん"
+      episodes:
+        - "最近離婚した"
+    expected_output:
+      contains:
+        - "⚠️"
+        - "絶対に聞いちゃダメ"
+        - "っす"
+      not_contains:
+        - "頑張って"
+```
+
+##### 5. 人格一貫性スコアリング
+
+**目的**: AI応答の人格一貫性を定量的に評価し、品質を継続的に改善する
+
+**スコアリング基準**:
+```python
+def calculate_persona_score(response: str) -> float:
+    """人格一貫性スコアを計算（0.0〜1.0）"""
+    score = 1.0
+    
+    # 必須項目（違反で大幅減点）
+    if not re.search(r'っす(ね)?$', response.strip()):
+        score -= 0.5  # 語尾不一致は致命的
+    
+    forbidden_words = ['頑張りましょう', 'ちゃんと', 'しっかり']
+    for word in forbidden_words:
+        if word in response:
+            score -= 0.3  # 禁止ワードは重大
+    
+    # 推奨項目（違反で軽微減点）
+    if not re.search(r'[😊👍🤒😰💪]', response):
+        score -= 0.1  # 絵文字なしは軽微
+    
+    casual_words = ['ヤバい', '爆上がり', '秒で', 'ポチ']
+    if not any(word in response for word in casual_words):
+        score -= 0.1  # ゆるふわ表現なしは軽微
+    
+    return max(0.0, score)
+```
+
+**目標スコア**:
+- MVP段階: 平均スコア 0.9以上
+- 決勝用: 平均スコア 0.95以上
+
 ---
 
 ## 3. 非機能要件
 
 ### 3.1 パフォーマンス要件
-- **AI応答時間**: LLMの推論や解析において、ユーザーの「待たされている感（UXの阻害）」を最小限に抑える、自然なテンポで稼働すること
-- **通知配信**: EventBridge + Lambda + FCM で適切なタイミングで通知配信
+
+#### MVPスコープ（P0）: 最低限のパフォーマンスライン
+
+**目的**: 機能検証を優先し、パフォーマンスは「動作する」レベルを確保
+
+| 機能 | 目標レスポンスタイム（P95） | 許容最大値 | 優先度 |
+|---|---|---|---|
+| カンペ生成（テキストのみ） | 10秒以内 | 15秒 | P0 |
+| スクショ解析（マルチモーダル） | 15秒以内 | 20秒 | P1 |
+| 音声メモ解析 | 10秒以内 | 15秒 | P1 |
+| CRUD API（DynamoDB） | 2秒以内 | 3秒 | P0 |
+| プッシュ通知配信 | 2分以内 | 5分 | P0 |
+| ワンタップ感情タグ保存 | 1秒以内 | 2秒 | P0 |
+
+**測定基準**: P95（95パーセンタイル）
+**監視方式**: CloudWatch Metricsで基本的なモニタリング
+**アラート**: 許容最大値を超えた場合のみアラート（SNS通知）
+
+**MVP段階の方針**:
+- パフォーマンス最適化は後回し
+- 機能検証とUX検証を優先
+- 「動作する」ことが最優先
+
+#### 決勝用フルスコープ（P2）: 現実的なパフォーマンス目標
+
+**目的**: ユーザー体験を損なわない、現実的に達成可能なレスポンスタイム
+
+| 機能 | 目標レスポンスタイム（P95） | 許容最大値 | 最適化手法 |
+|---|---|---|---|
+| カンペ生成（テキストのみ） | 5秒以内 | 8秒 | プロンプト最適化、キャッシング |
+| スクショ解析（マルチモーダル） | 10秒以内 | 15秒 | 画像圧縮、並列処理 |
+| 音声メモ解析 | 5秒以内 | 8秒 | 音声圧縮、ストリーミング |
+| CRUD API（DynamoDB） | 500ms以内 | 1秒 | GSI最適化、接続プーリング |
+| プッシュ通知配信 | 30秒以内 | 1分 | EventBridge最適化 |
+| ワンタップ感情タグ保存 | 500ms以内 | 1秒 | 楽観的UI更新 |
+
+**測定基準**: P95（95パーセンタイル）
+**監視方式**: CloudWatch Dashboard + X-Ray分散トレーシング
+**アラート**: 目標値超過で警告、許容最大値超過でクリティカルアラート
+
+**決勝用の最適化方針**:
+- Bedrockプロンプトの最適化（トークン数削減）
+- 頻繁なカンペパターンのキャッシング（DynamoDB TTL）
+- 画像・音声の事前圧縮
+- Lambda関数のウォームアップ（Provisioned Concurrency）
+
+#### パフォーマンス測定方法
+
+**CloudWatch Metrics**:
+```
+- Lambda実行時間: Duration（ms）
+- Bedrock応答時間: カスタムメトリクス
+- DynamoDB応答時間: SuccessfulRequestLatency（ms）
+- API Gateway応答時間: Latency（ms）
+```
+
+**CloudWatch Dashboard**:
+- リアルタイムレスポンスタイムグラフ
+- P50/P95/P99パーセンタイル表示
+- エラー率とスロットリング率
+
+**X-Ray分散トレーシング（決勝用のみ）**:
+- エンドツーエンドのレイテンシ分析
+- ボトルネック特定（Bedrock、DynamoDB、Lambda）
+
+#### パフォーマンス最適化の優先順位
+
+**MVP段階（P0）**:
+1. 機能実装の完成度
+2. UX検証（思考停止体験の成立）
+3. AI人格の一貫性
+4. パフォーマンスは最低限（動作すればOK）
+
+**決勝用（P2）**:
+1. ユーザー体験の向上
+2. パフォーマンス最適化（現実的な範囲）
+3. スケーラビリティ確保
+4. コスト最適化
+
+**重要な方針**:
+- MVPでは「完璧なパフォーマンス」を追求しない
+- 決勝用でも「過度な最適化」は避ける
+- ユーザーが「待たされている」と感じない程度で十分
+- 技術的負債を最小限に抑えつつ、現実的な目標を設定
 
 ### 3.2 セキュリティ要件（Extension: Security Baseline適用）
 
@@ -473,8 +859,9 @@ Googleカレンダーから「PTA集会」等の予定を検出し、開始時�
 - **対策**: MVPでもDynamoDBを使用し、データモデルを最初から拡張可能に設計する。API設計もバージョニングを考慮
 
 ### 6.4 社会的マナータイミングの複雑性
-- **リスク**: 24時間以内、2〜3週間後、次回予定直前等の複雑なタイミング制御が実装困難
-- **対策**: EventBridge + Lambda + DynamoDBでタイミング計算ロジックを実装。ユニットテストで各タイミングパターンを検証
+- **リスク**: 24時間以内、21日後、次回予定直前等のタイミング制御が実装困難
+- **対策（MVP）**: 固定スケジュール（21日後）のみ実装し、EventBridge Schedulerでシンプルに実装。ユニットテストで固定日数パターンを検証
+- **対策（決勝用）**: カレンダーWebhook統合による動的再計算を追加。EventBridge Scheduler更新ロジックとエッジケース処理を実装
 
 ---
 
