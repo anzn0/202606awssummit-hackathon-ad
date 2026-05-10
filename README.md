@@ -3,7 +3,44 @@
 > **「人間、お休みしませんか。」**  
 > 社会的生存のためのコミュニケーション外注化
 
-**[【必読】PR-FAQを読む（私たちが実現する中身ゼロ「聖人君子」の量産化）](./docs/PR-FAQ.md)**
+**[【👉PR-FAQを読む】（私たちが実現する中身ゼロ「聖人君子」の量産化）](./docs/PR-FAQ.md)**
+
+---
+
+## 🏆 AWS Summit Japan 2026 AI-DLC ハッカソン エントリー
+
+**テーマ**: 「人をダメにする」サービス  
+**公式サイト**: [AWS Summit Japan 2026 ハッカソン](https://pages.awscloud.com/summit-japan-2026-hackathon-reg.html)
+
+### 📋 書類審査 提出物チェックリスト
+
+| 項目 | ステータス | リンク |
+|---|---|---|
+| **AI-DLCステータス** | ✅ Inceptionフェーズ完了 | [aidlc-state.md](./aidlc-docs/aidlc-state.md) |
+| **要件分析** | ✅ 完了 | [requirements.md](./aidlc-docs/inception/requirements/requirements.md) |
+| **ユーザーストーリー** | ✅ 完了（30ストーリー） | [stories.md](./aidlc-docs/inception/user-stories/stories.md) / [personas.md](./aidlc-docs/inception/user-stories/personas.md) |
+| **アプリケーション設計** | ✅ 完了（33コンポーネント） | [application-design.md](./aidlc-docs/inception/application-design/application-design.md) |
+| **Unit of Work計画** | ✅ 完了（4 Units） | [units-generation-plan.md](./aidlc-docs/inception/plans/units-generation-plan.md) |
+
+### 🗓️ ハッカソン マイルストーン
+
+| フェーズ | 日程 | 提出物 | ステータス |
+|---|---|---|---|
+| 応募 | 〜5/10 | 応募フォーム | ✅ 完了 |
+| 書類審査 | 5/15 結果発表 | Inceptionフェーズ成果物 | 📝 提出済 |
+| 予選会 | 5/30 @麻布台ヒルズ | MVPデモ + プレゼン | 🔜 準備中 |
+| 決勝 | 6/26 @幕張メッセ | AWS上の動作デモ + プレゼン | 🔜 予定 |
+
+### 👥 チームメンバー
+
+| メンバー | スキル・役割 | 担当Unit |
+|---|---|---|
+| **AWS/バックエンドエンジニアA** | DynamoDB設計、Lambda実装、API設計 | Unit-DB（データベース設計・CRUD実装） |
+| **AWS/バックエンドエンジニアB** | API Gateway、EventBridge、システム統合 | Unit-Integration（API・ワークフロー構築） |
+| **プロンプトエンジニア/企画** | Bedrock、プロンプト設計、AI人格設計 | Unit-AD（プロンプトエンジニアリング） |
+| **デザイナー/フロントエンドエンジニア** | React、UI/UX、フロントエンド実装 | Unit-UI（フロントエンド実装） |
+
+各メンバーのスキルセットに基づき、並行開発可能な4つのUnitに分解。Unit-UIとUnit-ADを先行実装（モックデータ使用）し、Unit-DBとUnit-Integrationを後から統合する段階的アプローチを採用。
 
 ---
 
@@ -86,7 +123,7 @@ AI時代、人間に残る仕事は「共感」や「信頼構築」だと言わ
 
 ## Technical Architecture
 
-### Technology Stack
+### 技術スタック
 
 **Frontend**:
 - Framework: React
@@ -107,7 +144,7 @@ AI時代、人間に残る仕事は「共感」や「信頼構築」だと言わ
 - Scheduler: Amazon EventBridge（Rules + Scheduler）
 - Push Notification: Firebase Cloud Messaging (FCM)
 
-### System Architecture
+### システムアーキテクチャ
 
 フルマネージドなサーバーレスアーキテクチャにより、運用オーバーヘッドを極限まで（ユーザーの人間関係への関心と同じくらい）ゼロに近づけています。
 
@@ -141,7 +178,7 @@ graph TD
     style Cognito fill:#FF9900
 ```
 
-### Architecture Patterns
+### アーキテクチャパターン
 
 - **Layered Architecture**（6層）
 - **Service-Oriented Architecture**（Thin/Thick Services）
@@ -319,7 +356,7 @@ Google Calendar API連携による、予定の自動取得と「撮れ高報告�
 
 ## Development Process
 
-### Phased Release Strategy
+### 段階的リリース戦略
 
 | フェーズ | スコープ | 実装内容 |
 |---|---|---|
@@ -327,14 +364,14 @@ Google Calendar API連携による、予定の自動取得と「撮れ高報告�
 | **決勝用フルスコープ** | P2 | Capability 5、動的再計算（カレンダーWebhook統合）、エラーハンドリング強化、状態管理の高度化、自動テスト |
 | **拡張スコープ** | P3 | オフライン対応（PWA + IndexedDB）、X-Ray分散トレーシング |
 
-### Unit Division Strategy
+### Unit分割戦略
 
 - **Unit-UI**：フロントエンド実装（デザイナー）
 - **Unit-AD**：プロンプトエンジニアリング（企画/プロンプトエンジニア）
 - **Unit-DB**：DynamoDB設計・CRUD実装（AWSエンジニアA）
 - **Unit-Integration**：API・ワークフロー構築（AWSエンジニアB）
 
-### Parallel Development Strategy
+### 並行開発戦略
 
 **フェーズ1**：Unit-UIとUnit-ADを先行実装（モックデータ使用）  
 **フェーズ2**：Unit-DBとUnit-Integrationを後から実装
@@ -343,21 +380,22 @@ Google Calendar API連携による、予定の自動取得と「撮れ高報告�
 
 ## Deliverables
 
-### Standard AI-DLC Documents
+### 標準AI-DLCドキュメント
 
-- 要件定義書（requirements.md）
-- ユーザーストーリー（stories.md）：30ストーリー（19機能 + 11非機能）
-- アプリケーション設計（application-design.md）：33コンポーネント、8サービス
-- Unit分割計画（units-generation-plan.md）：4 Units、並行開発戦略
+- [要件定義書（requirements.md）](./aidlc-docs/inception/requirements/requirements.md)
+- [ユーザーストーリー（stories.md）](./aidlc-docs/inception/user-stories/stories.md)：30ストーリー（19機能 + 11非機能）
+- [ペルソナ（personas.md）](./aidlc-docs/inception/user-stories/personas.md)
+- [アプリケーション設計（application-design.md）](./aidlc-docs/inception/application-design/application-design.md)：33コンポーネント、8サービス
+- [Unit分割計画（units-generation-plan.md）](./aidlc-docs/inception/plans/units-generation-plan.md)：4 Units、並行開発戦略
 
-### Specialized Documents
+### 専門ドキュメント
 
-- 批評文書（critique-document.md）：8つの改善提案すべて実行完了
-- 返報性ハックタイミング計算ロジック（henpou-timing-logic.md）
-- AI人格プロンプトプロトタイプ（ai-persona-prototype.md）
-- API契約仕様書（api-contract-specification.md）：20エンドポイント
+- [批評文書（critique-document.md）](./aidlc-docs/inception/critique-document.md)：8つの改善提案すべて実行完了
+- [返報性ハックタイミング計算ロジック（henpou-timing-logic.md）](./aidlc-docs/inception/henpou-timing-logic.md)
+- [AI人格プロンプトプロトタイプ（ai-persona-prototype.md）](./aidlc-docs/inception/ai-persona-prototype.md)
+- [API契約仕様書（api-contract-specification.md）](./aidlc-docs/inception/api-contract-specification.md)：20エンドポイント
 
-### Quality Metrics
+### 品質メトリクス
 
 | 評価項目 | 完了率 | 評価 |
 |---|---|---|
@@ -379,13 +417,30 @@ Google Calendar API連携による、予定の自動取得と「撮れ高報告�
 ├── aidlc-docs/                     # AI-DLC成果物
 │   ├── inception/
 │   │   ├── requirements/
+│   │   │   ├── requirements.md
+│   │   │   ├── requirement-clarification-questions.md
+│   │   │   └── requirement-verification-questions.md
 │   │   ├── user-stories/
+│   │   │   ├── stories.md
+│   │   │   └── personas.md
 │   │   ├── application-design/
+│   │   │   ├── application-design.md
+│   │   │   ├── components.md
+│   │   │   ├── services.md
+│   │   │   ├── component-methods.md
+│   │   │   └── component-dependency.md
 │   │   ├── plans/
+│   │   │   ├── execution-plan.md
+│   │   │   ├── units-generation-plan.md
+│   │   │   ├── application-design-plan.md
+│   │   │   ├── story-generation-plan.md
+│   │   │   └── user-stories-assessment.md
 │   │   ├── critique-document.md
 │   │   ├── henpou-timing-logic.md
 │   │   ├── ai-persona-prototype.md
-│   │   └── api-contract-specification.md
+│   │   ├── api-contract-specification.md
+│   │   ├── dynamodb-data-model.md
+│   │   └── mock-data-schema.md
 │   ├── aidlc-state.md
 │   └── audit.md
 ├── docs/
