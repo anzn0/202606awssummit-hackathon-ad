@@ -1,7 +1,6 @@
 # コミュ♥外chu
 
-> **「人間、お休みしませんか。」**  
-> 社会的生存のためのコミュニケーション外注化
+> **「人間、お休みしませんか。」** > 社会的生存のためのコミュニケーション外注化
 
 **[【👉PR-FAQを読む】（私たちが実現する中身ゼロ「聖人君子」の量産化）](./docs/PR-FAQ.md)**
 
@@ -14,7 +13,7 @@
 
 ### 📋 審査要件マッピング（AI-DLC Inceptionフェーズ完了証明）
 
-本プロジェクトは、AI-DLCが要求するInceptionフェーズの全プロセスを完了しています。以下に提出物をマッピングいたします。
+本プロジェクトは、AI-DLCが要求するInceptionフェーズの全プロセスを完了しています。審査において重要な「要件分析、ユーザーストーリー、アプリケーション設計、Unit of Work計画」の妥当性を迅速に評価いただけるよう、以下の通り成果物をマッピングしています。プロジェクトの全体ステータスおよび完了証明は `aidlc-state.md` にて厳密に管理されています。
 
 | 項目 | ステータス | リンク |
 |---|---|---|
@@ -180,14 +179,15 @@ graph TD
     style Bedrock fill:#FF9900
     style EventBridge fill:#FF9900
     style Cognito fill:#FF9900
+
 ```
 
 ### アーキテクチャパターン
 
-- **Layered Architecture**（6層）
-- **Service-Oriented Architecture**（Thin/Thick Services）
-- **Event-Driven Architecture**（EventBridge Rules + Scheduler）
-- **Serverless Architecture**（ステートレス関数）
+* **Layered Architecture**（6層）
+* **Service-Oriented Architecture**（Thin/Thick Services）
+* **Event-Driven Architecture**（EventBridge Rules + Scheduler）
+* **Serverless Architecture**（ステートレス関数）
 
 ---
 
@@ -195,15 +195,17 @@ graph TD
 
 ### 1. マルチモーダル・ナレッジ・インジェクション
 
-**技術概要**：  
+**技術概要**：
+
 感情タグ、音声メモ、スクリーンショット等の非構造化データから、Amazon Nova（Bedrock）のマルチモーダル機能を活用して「人物背景・感情・潜在的ニーズ」を抽出・構造化する。
 
 **入力形式**：
-- **ワンタップ感情タグ**：絵文字ボタン（🤒 体調悪そう、😊 元気そう、😰 悩んでそう等）による構造化データ入力
-- **音声メモ入力**：短い音声メモ（「腰痛いらしい」等）をAmazon Novaでテキスト化
-- **画像アップロード**：LINEスクリーンショット等をAmazon Novaのマルチモーダル機能で解析
+* **ワンタップ感情タグ**：絵文字ボタン（🤒 体調悪そう、😊 元気そう、😰 悩んでそう等）による構造化データ入力
+* **音声メモ入力**：短い音声メモ（「腰痛いらしい」等）をAmazon Novaでテキスト化
+* **画像アップロード**：LINEスクリーンショット等をAmazon Novaのマルチモーダル機能で解析
 
 **データフロー**：
+
 ```
 非構造化データ（画像/音声/タグ）
   ↓
@@ -212,149 +214,173 @@ Amazon Nova（Bedrock）マルチモーダル解析
 構造化ナレッジ抽出（キーワード、エンティティ、センチメント）
   ↓
 DynamoDB（Episodesテーブル）永続化
+
 ```
 
 **技術的特徴**：
-- 入力摩擦ゼロ：誕生日などの構造化データを手動入力させない
-- リアルタイム解析：Lambda関数による非同期処理
-- 冪等性設計：重複エピソードの自動検出・マージ
+
+* 入力摩擦ゼロ：誕生日などの構造化データを手動入力させない
+* リアルタイム解析：Lambda関数による非同期処理
+* 冪等性設計：重複エピソードの自動検出・マージ
 
 ---
 
 ### 2. コンテキスト依存型プロンプト・オーケストレーション
 
 **技術概要**：
+
 蓄積されたエピソードデータに基づき、特定の「予定」に対して最適なアイスブレイク、NG話題のリアルタイム検出、およびASIN選択を行うAIロジック。
 
 **プロンプトエンジニアリング**：
 
 1. **アイスブレイクカンペ生成**
-   - 入力：ターゲット人物ID、過去のエピソード（最大10件）
-   - 出力：「『腰の調子、どうっすか？』って聞いとけばOKっす」
-   - プロンプトテンプレート：`prompts/scenes/kanpe-generation.yaml`
+* 入力：ターゲット人物ID、過去のエピソード（最大10件）
+* 出力：「『腰の調子、どうっすか？』って聞いとけばOKっす」
+* プロンプトテンプレート：`prompts/scenes/kanpe-generation.yaml`
+
 
 2. **NG話題（地雷）検出**
-   - 入力：ターゲット人物ID、過去のエピソード（is_ng_topic=true）
-   - 出力：「⚠️ 絶対に聞いちゃダメ：『奥さん元気？』『犬は？』」
-   - プロンプトテンプレート：`prompts/scenes/ng-topic-alert.yaml`
+* 入力：ターゲット人物ID、過去のエピソード（is_ng_topic=true）
+* 出力：「⚠️ 絶対に聞いちゃダメ：『奥さん元気？』『犬は？』」
+* プロンプトテンプレート：`prompts/scenes/ng-topic-alert.yaml`
+
 
 3. **ASIN選択（ギフト提案）**
-   - 入力：ターゲット人物の状況、関係性
-   - 出力：ASIN（例：B0XXXXXX）、商品名、理由
-   - プロンプトテンプレート：`prompts/scenes/gift-suggestion.yaml`
+* 入力：ターゲット人物の状況、関係性
+* 出力：ASIN（例：B0XXXXXX）、商品名、理由
+* プロンプトテンプレート：`prompts/scenes/gift-suggestion.yaml`
+
+
 
 **AI人格の一貫性維持**：
-- プロンプトバージョン管理（セマンティックバージョニング）
-- 人格崩壊検出（自動検証）：語尾統一チェック（`/っす(ね)?$/`）、禁止ワードチェック
-- 継続的検証（CI/CD統合）：GitHub Actions、CloudWatch Logs Insights
-- 人格一貫性スコアリング（目標スコア：MVP 0.9以上、決勝用 0.95以上）
+
+* プロンプトバージョン管理（セマンティックバージョニング）
+* 人格崩壊検出（自動検証）：語尾統一チェック（`/っす(ね)?$/`）、禁止ワードチェック
+* 継続的検証（CI/CD統合）：GitHub Actions、CloudWatch Logs Insights
+* 人格一貫性スコアリング（目標スコア：MVP 0.9以上、決勝用 0.95以上）
 
 **技術的特徴**：
-- コンテキストウィンドウ最適化：過去10件のエピソードに限定
-- フォールバック機構：Bedrock障害時はデフォルトカンペを返却
-- サーキットブレーカー：5回失敗でOPEN、60秒タイムアウト
+
+* コンテキストウィンドウ最適化：過去10件のエピソードに限定
+* フォールバック機構：Bedrock障害時はデフォルトカンペを返却
+* サーキットブレーカー：5回失敗でOPEN、60秒タイムアウト
 
 ---
 
 ### 3. 圧ゼロUI：思考停止型インターフェース
 
 **技術概要**：
+
 スケッチブック風の手書きデザインと、スワイプ/ワンタップ操作に特化した「脳のメモリを消費させない」フロントエンド実装。
 
 **UI/UXデザイン原則**：
-- **手書き風カンペ表示**：CSSアニメーションで手書き風フォント・スケッチブック風デザイン
-- **Tinder風スワイプジェスチャー**：react-spring等のライブラリでスワイプフィードバック実装
-- **思考停止の「よきに」ボタン**：ワンタップでAmazon商品詳細ページ（アソシエイトリンク）に遷移
+
+* **手書き風カンペ表示**：CSSアニメーションで手書き風フォント・スケッチブック風デザイン
+* **Tinder風スワイプジェスチャー**：react-spring等のライブラリでスワイプフィードバック実装
+* **思考停止の「よきに」ボタン**：ワンタップでAmazon商品詳細ページ（アソシエイトリンク）に遷移
 
 **状態管理戦略（決勝用）**：
-- **グローバル状態**：Zustand（ユーザー情報、認証トークン、通知設定）
-- **サーバー状態**：TanStack Query（API呼び出し、キャッシング、リトライ）
-- **ローカル状態**：React Hooks（フォーム入力、UI状態）
+
+* **グローバル状態**：Zustand（ユーザー情報、認証トークン、通知設定）
+* **サーバー状態**：TanStack Query（API呼び出し、キャッシング、リトライ）
+* **ローカル状態**：React Hooks（フォーム入力、UI状態）
 
 **キャッシング戦略**：
 
 | データ種別 | キャッシュ時間 | 無効化タイミング |
-|---|---|---|
+| --- | --- | --- |
 | カンペ | 5分 | 新規エピソード追加時 |
 | エピソード一覧 | 10分 | 撮れ高報告時 |
 | ターゲット人物一覧 | 30分 | 新規ターゲット追加時 |
 | ユーザー情報 | 1時間 | ログアウト時 |
 
 **技術的特徴**：
-- 楽観的UI更新：スワイプフィードバック時に即座にUI更新、エラー時にロールバック
-- モックデータ戦略：バックエンドAPIの完成を待たずにUI開発を先行実装
-- レスポンシブデザイン：モバイルファースト（スマホ最適化）
+
+* 楽観的UI更新：スワイプフィードバック時に即座にUI更新、エラー時にロールバック
+* モックデータ戦略：バックエンドAPIの完成を待たずにUI開発を先行実装
+* レスポンシブデザイン：モバイルファースト（スマホ最適化）
 
 ---
 
 ### 4. 分散型・非同期返報スケジューリング
 
-**技術概要**：  
+**技術概要**：
+
 Amazon EventBridge Schedulerを用いた、24時間以内（即効性）および2〜3週間後（遅効性）の二段階返報通知の自律的実行。
 
 **二段階返報ロジック**：
 
 **第一段階：即効性お礼カンペ通知（24時間以内）**
-- **トリガー**：エピソード作成時（episode_type="received_gift"）
-- **スケジュール登録**：EventBridge Scheduler（24時間後）
-- **通知内容**：感謝のLINEカンペ
-- **実装**：Lambda関数 → FCM → プッシュ通知
+
+* **トリガー**：エピソード作成時（episode_type="received_gift"）
+* **スケジュール登録**：EventBridge Scheduler（24時間後）
+* **通知内容**：感謝のLINEカンペ
+* **実装**：Lambda関数 → FCM → プッシュ通知
 
 **第二段階：遅効性ギフト提案通知（2〜3週間後）**
 
 **MVP段階（固定スケジュール方式）**：
-- **タイミング**：事象発生から21日後（固定）
-- **スケジュール登録**：EventBridge Scheduler（21日後）
-- **実装**：シンプルな固定日数計算
+
+* **タイミング**：事象発生から21日後（固定）
+* **スケジュール登録**：EventBridge Scheduler（21日後）
+* **実装**：シンプルな固定日数計算
 
 **決勝用フルスコープ（動的再計算方式）**：
-- **デフォルト**：21日後
-- **次回予定優先**：21日以内に予定がある場合は、予定の3日前に変更
-- **トリガー**：Google Calendar Webhook（予定追加・変更・キャンセル）
-- **実装**：Lambda関数 → タイミング再計算 → EventBridge Scheduler更新
+
+* **デフォルト**：21日後
+* **次回予定優先**：21日以内に予定がある場合は、予定の3日前に変更
+* **トリガー**：Google Calendar Webhook（予定追加・変更・キャンセル）
+* **実装**：Lambda関数 → タイミング再計算 → EventBridge Scheduler更新
 
 **エッジケース処理（決勝用）**：
 
 | ケース | 処理方法 | 理由 |
-|---|---|---|
+| --- | --- | --- |
 | 次回予定が2週間以内 | デフォルトを維持 | 「早すぎて事務的」を避ける |
 | 次回予定が2〜3週間後より早い | 次回予定直前（3日前）に変更 | 「会う時に渡す」タイミング |
 | 次回予定が2〜3週間後より遅い | デフォルトを維持 | 「遅すぎて失礼」を避ける |
 | 次回予定がキャンセル | デフォルトにフォールバック | 安全な選択 |
 
 **技術的特徴**：
-- 冪等性設計：同じエピソードに対する重複通知を防ぐ（IdempotencyTable）
-- DLQ（Dead Letter Queue）：通知失敗時はSQS DLQに送信、14日間保持
-- タイムアウト設定：Lambda（通知）10秒、EventBridge Scheduler更新5秒
+
+* 冪等性設計：同じエピソードに対する重複通知を防ぐ（IdempotencyTable）
+* DLQ（Dead Letter Queue）：通知失敗時はSQS DLQに送信、14日間保持
+* タイムアウト設定：Lambda（通知）10秒、EventBridge Scheduler更新5秒
 
 ---
 
 ### 5. 外部コンテキスト統合：予定自動検知（決勝用）
 
 **技術概要**：
+
 Google Calendar API連携による、予定の自動取得と「撮れ高報告」のプッシュ通知トリガー。
 
 **統合フロー**：
 
 1. **Google Calendar API連携**
-   - OAuth 2.0によるGoogle認証
-   - Calendar Events APIで予定取得
-   - Webhook登録（予定追加・変更・キャンセル）
+* OAuth 2.0によるGoogle認証
+* Calendar Events APIで予定取得
+* Webhook登録（予定追加・変更・キャンセル）
+
 
 2. **予定自動検知**
-   - トリガー：カレンダーに「PTA集会」等の予定が登録される
-   - 処理：Lambda関数が予定を検知し、開始時刻の30分前に通知スケジュールを登録
-   - 通知内容：「今日のPTA集会、こんな感じで乗り切りましょ〜」とカンペ
+* トリガー：カレンダーに「PTA集会」等の予定が登録される
+* 処理：Lambda関数が予定を検知し、開始時刻の30分前に通知スケジュールを登録
+* 通知内容：「今日のPTA集会、こんな感じで乗り切りましょ〜」とカンペ
+
 
 3. **撮れ高報告リマインダー**
-   - トリガー：予定終了時刻
-   - 処理：Lambda関数がプッシュ通知を送信
-   - 通知内容：「お疲れーっす！今日の撮れ高ポチッとしといてくださーい」
+* トリガー：予定終了時刻
+* 処理：Lambda関数がプッシュ通知を送信
+* 通知内容：「お疲れーっす！今日の撮れ高ポチッとしといてくださーい」
+
+
 
 **技術的特徴**：
-- Webhook駆動：リアルタイムな予定変更に対応
-- 非同期処理：EventBridge Rules → Lambda → FCM
-- エラーハンドリング：Google Calendar API障害時はフォールバック（通知スキップ）
+
+* Webhook駆動：リアルタイムな予定変更に対応
+* 非同期処理：EventBridge Rules → Lambda → FCM
+* エラーハンドリング：Google Calendar API障害時はフォールバック（通知スキップ）
 
 ---
 
@@ -363,21 +389,22 @@ Google Calendar API連携による、予定の自動取得と「撮れ高報告�
 ### 段階的リリース戦略
 
 | フェーズ | スコープ | 実装内容 |
-|---|---|---|
+| --- | --- | --- |
 | **MVP（予選）** | P0 | Capability 1〜4、固定スケジュール（21日後）、基本的なエラーログ記録 |
 | **決勝用フルスコープ** | P2 | Capability 5、動的再計算（カレンダーWebhook統合）、エラーハンドリング強化、状態管理の高度化、自動テスト |
 | **拡張スコープ** | P3 | オフライン対応（PWA + IndexedDB）、X-Ray分散トレーシング |
 
 ### Unit分割戦略
 
-- **Unit-UI**：フロントエンド実装（デザイナー）
-- **Unit-AD**：プロンプトエンジニアリング（企画/プロンプトエンジニア）
-- **Unit-DB**：DynamoDB設計・CRUD実装（AWSエンジニアA）
-- **Unit-Integration**：API・ワークフロー構築（AWSエンジニアB）
+* **Unit-UI**：フロントエンド実装（デザイナー）
+* **Unit-AD**：プロンプトエンジニアリング（企画/プロンプトエンジニア）
+* **Unit-DB**：DynamoDB設計・CRUD実装（AWSエンジニアA）
+* **Unit-Integration**：API・ワークフロー構築（AWSエンジニアB）
 
 ### 並行開発戦略
 
 **フェーズ1**：Unit-UIとUnit-ADを先行実装（モックデータ使用）
+
 **フェーズ2**：Unit-DBとUnit-Integrationを後から実装
 
 ---
@@ -386,23 +413,23 @@ Google Calendar API連携による、予定の自動取得と「撮れ高報告�
 
 ### 標準AI-DLCドキュメント
 
-- [要件定義書（requirements.md）](./aidlc-docs/inception/requirements/requirements.md)
-- [ユーザーストーリー（stories.md）](./aidlc-docs/inception/user-stories/stories.md)：30ストーリー（19機能 + 11非機能）
-- [ペルソナ（personas.md）](./aidlc-docs/inception/user-stories/personas.md)
-- [アプリケーション設計（application-design.md）](./aidlc-docs/inception/application-design/application-design.md)：33コンポーネント、8サービス
-- [Unit分割計画（units-generation-plan.md）](./aidlc-docs/inception/plans/units-generation-plan.md)：4 Units、並行開発戦略
+* [要件定義書（requirements.md）](https://www.google.com/search?q=./aidlc-docs/inception/requirements/requirements.md)
+* [ユーザーストーリー（stories.md）](https://www.google.com/search?q=./aidlc-docs/inception/user-stories/stories.md)：30ストーリー（19機能 + 11非機能）
+* [ペルソナ（personas.md）](https://www.google.com/search?q=./aidlc-docs/inception/user-stories/personas.md)
+* [アプリケーション設計（application-design.md）](https://www.google.com/search?q=./aidlc-docs/inception/application-design/application-design.md)：33コンポーネント、8サービス
+* [Unit分割計画（units-generation-plan.md）](https://www.google.com/search?q=./aidlc-docs/inception/plans/units-generation-plan.md)：4 Units、並行開発戦略
 
 ### 専門ドキュメント
 
-- [批評文書（critique-document.md）](./aidlc-docs/inception/critique-document.md)：8つの改善提案すべて実行完了
-- [返報性ハックタイミング計算ロジック（henpou-timing-logic.md）](./aidlc-docs/inception/henpou-timing-logic.md)
-- [AI人格プロンプトプロトタイプ（ai-persona-prototype.md）](./aidlc-docs/inception/ai-persona-prototype.md)
-- [API契約仕様書（api-contract-specification.md）](./aidlc-docs/inception/api-contract-specification.md)：20エンドポイント
+* [批評文書（critique-document.md）](https://www.google.com/search?q=./aidlc-docs/inception/critique-document.md)：8つの改善提案すべて実行完了
+* [返報性ハックタイミング計算ロジック（henpou-timing-logic.md）](https://www.google.com/search?q=./aidlc-docs/inception/henpou-timing-logic.md)
+* [AI人格プロンプトプロトタイプ（ai-persona-prototype.md）](https://www.google.com/search?q=./aidlc-docs/inception/ai-persona-prototype.md)
+* [API契約仕様書（api-contract-specification.md）](https://www.google.com/search?q=./aidlc-docs/inception/api-contract-specification.md)：20エンドポイント
 
 ### 品質メトリクス
 
 | 評価項目 | 完了率 | 評価 |
-|---|---|---|
+| --- | --- | --- |
 | 要件定義 | 100% | A |
 | ユーザーストーリー | 100% | A |
 | アプリケーション設計 | 100% | A |
@@ -450,6 +477,7 @@ Google Calendar API連携による、予定の自動取得と「撮れ高報告�
 ├── docs/
 │   └── PR-FAQ.md                   # PR-FAQ
 └── README.md                       # 本ドキュメント
+
 
 ```
 

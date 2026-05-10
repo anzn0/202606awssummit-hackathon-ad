@@ -377,7 +377,7 @@ Google Calendar API連携による、予定の自動取得と「撮れ高報告�
 
 ### 並行開発戦略
 
-**フェーズ1**：Unit-UIとUnit-ADを先行実装（モックデータ使用）
+**フェーズ1**：Unit-UIとUnit-ADを先行実装（モックデータ使用）  
 **フェーズ2**：Unit-DBとUnit-Integrationを後から実装
 
 ---
